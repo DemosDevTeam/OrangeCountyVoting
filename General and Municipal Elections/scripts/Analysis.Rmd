@@ -11,6 +11,11 @@ library(RColorBrewer)
 ```
 
 ```{r}
+
+
+general <- read_csv("temp/General.csv")
+municipal <- read_csv("temp/Municipal.csv")
+
 # Create data.frames of unqiue voters in each type of election
 genUnique <- general[!duplicated(general[,"fullName"]),]
 muniUnique <- municipal[!duplicated(municipal[,"fullName"]),]

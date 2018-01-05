@@ -2,7 +2,9 @@
 title: "LeafletMapping"
 author: "Alex Kan -lexokan"
 date: "November 19, 2017"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, message = FALSE, include=FALSE, warning = FALSE}
@@ -19,12 +21,15 @@ library(RDSTK)
 ```
 
 ```{r}
+
 # Read in .KML used to create precinct boundaries
 googlePrecincts = 'data/PrecinctBoundaries/Precincts.kml'
 lyr <- ogrListLayers(googlePrecincts)
 plt <- readOGR(googlePrecincts, layer = lyr) %>% 
     fortify(.)
 
+general <- read_csv("temp/General.csv")
+municipal <- read_csv("temp/Municipal.csv")
 combined <- rbind(general, municipal)
 
 ```

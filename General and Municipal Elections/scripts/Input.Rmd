@@ -106,7 +106,10 @@ sliceGeocode <- function(df,type) {
 sliceGeocode(general, "gen")
 sliceGeocode(municipal, "muni")
 
+write_csv(general, "temp/general.csv")
+write_csv(municipal, "temp/municipal.csv")
 combined <- rbind(general, municipal)
+
 ```
 
 ```{r}
