@@ -6,50 +6,124 @@ output: html_document
 ---
 
 ```{r setup, message = FALSE, include=FALSE, warning = FALSE}
+# Load Packages
+
 library(tidyverse)
-library(leaflet)
 library(htmlwidgets)
 library(magrittr)
+library(leaflet)
 library(leaflet.extras)
 library(ggmap)
+library(rgdal)
+library(RDSTK)
 ```
 
 ```{r}
-# Read in dataset for all D1 schools
-df <- read_csv("data/chCoordinates") %>% 
-    select(latitude, longitude) %>% 
-    rename(lng = latitude, lat = longitude)
+# Read in .KML used to create precinct boundaries
+googlePrecincts = 'data/PrecinctBoundaries/Precincts.kml'
+lyr <- ogrListLayers(googlePrecincts)
+plt <- readOGR(googlePrecincts, layer = lyr) %>% 
+    fortify(.)
 
-df <- df[c("lat", "lng")]
+combined <- rbind(general, municipal)
 
-comb <- data.combined %>%
+```
+
+```{r}
+# Read in Geocoded Chapel HIll, NC coordinates 
+
+chCoordinates <- read_csv("data/chCoordinates") %>%
+    select(latitude, longitude)
+
+chCombined <- combined %>%
     filter(municipalityName == 'CHAPEL HILL') %>%
     as.tibble()
 
-comb$fullName %>% unique() %>% length()
+chCombined$fullName %>% 
+    unique() %>%
+    length()
 ```
 
 ```{r}
-#chapelHill <- get_map(location = 'chapel hill' , zoom = 15)
-ggmap(chapelHill) + geom_tile(data = df, aes(x = lng, y = lat),
-                           fill = 'red') + theme(axis.title.y = element_blank(), axis.title.x = element_blank())
-```
-
-
-```{r}
-latlng <- df %>% 
+# Randomly sample 2000 addresses to test clustering with Leaflet
+latlng <- chCoordinates %>% 
     slice(runif(2000,1,34876))
 
-map <- latlng %>%
+leafletCoords <- latlng[, c(2,1)]
+colnames(leafletCoords) <- c("latitude", "longitude")
+
+# Create leaflet map centered on Chapel Hill, add clusters 
+map <- leafletCoords %>% 
     leaflet() %>%
     addTiles() %>%
     setView(-79.0534, 35.915, zoom = 13) %>%
-    addMarkers(clusterOptions = markerClusterOptions()) %>%
-    addHeatmap()
-
+    addMarkers(clusterOptions = markerClusterOptions())
 map
-saveWidget(map, file="map.html")
 
 ```
 
+```{r}
+# Exploring the plotting of walking routes. Eventaully will be used to plot the route from a person's home to the nearest polling place or site for public transport.
+
+# Route from UNC CS Department to popular music venue 
+
+from <- '201 S Columbia St, Chapel Hill, NC 27599 '
+to <- 'Cat\'s Cradle'
+route <- route(from, to, structure = 'route', mode = 'walking')
+
+qmap('West Franklin Street, Chapel Hill, NC', zoom = 15, maptype = 'satellite') +
+    geom_path(
+        aes(x = lon, y = lat),  colour = 'red', size = 1.5,
+        data = route, lineend = 'round')
+
+```
+
+```{r}
+# Plot all chapel hill addresses in satellite view map to determine the distribution of voters
+
+qmap('Flyleaf Books, Chapel Hill, NC', zoom = 13, maptype = 'satellite')+
+    geom_polygon(data = plt,
+                 aes(x = long, y = lat, group = group),
+                 color = 'gray', fill = NA) +
+    geom_point(data = chCoordinates, aes(x = latitude, y = longitude), color = 'red',size = 1.5, alpha = .3)
+
+```
+
+```{r}
+# Visualize problem of individual voters registering from out of county (mostly Durham, Chatham, and Wake counties) 
+
+map2 <- ggplot() + 
+    geom_polygon(data = plt,
+                 aes(x = long, y = lat, group = group),
+                 color = 'gray', fill = 'white') +
+    geom_point(data = chCoordinates, aes(x = latitude, y = longitude), color = 'red',size = 2, alpha = .5)
+
+plot(map2)
+```
+
+
+```{r, eval = FALSE}
+### OLD CODE TO GEOCODE ADDRESSES 
+
+# Create full length addresses
+
+    fullAddress <- chCombined[!duplicated(chCombined[,"fullName"]),7:8]
+    fullAddress$residentialStreet <- gsub('# ', '',fullAddress$residentialStreet)
+    fullAddress <- transmute(fullAddress, address = paste(residentialStreet, residentialCity))
+    
+    coords <- data.frame(latitude = double(), longitude = double())
+
+for (i in 1:nrow(fullAddress)){
+   tryCatch({
+    address <- (toString(fullAddress[i,1])) 
+    Encoding(address)<- 'latin1'
+    latLong <- street2coordinates(address)
+    coords[i,] <- select(latLong, latitude, longitude)
+   },
+   
+   error = function(e){cat("ERROR :", conditionMessage(e),"\n")})
+  
+}
+
+```
 

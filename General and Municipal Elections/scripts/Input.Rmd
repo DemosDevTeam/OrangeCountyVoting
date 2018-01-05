@@ -12,7 +12,7 @@ library(tidyverse)
 
 ```{r, message = F}
 
-# Def function to rename dataframe columns 
+# Def function to rename dataframe columns and tidy data into a useful format 
 
 renameElection <- function(df) {
 df <- rename(df,precinctName = `JURISDICTION: PRECINCT NAME`,
@@ -42,7 +42,10 @@ df <- df %>%
            fullName = paste(firstName, middleName, lastName), 
            address = paste(mailingStreet, mailingCity))
 
+# Substitute in blank space in a person lacks a middle name 
 df$fullName <- gsub(" NA ", "  ", df$fullName)
+
+# Substitute in # for apartment numbers 
 df$residentialStreet <- gsub('# ', '',df$residentialStreet)
 
 #df <- df[!duplicated(df[,"fullName"]),]
@@ -56,8 +59,11 @@ return(df)
 ```{r}
 # Read in general and municipal election datasets and apply function
 
-general <- read_csv("data/General.csv") %>% renameElection()
-municipal <- read_csv("data/Municipal.csv") %>% renameElection()
+general <- read_csv("data/General.csv") %>%
+    renameElection()
+
+municipal <- read_csv("data/Municipal.csv") %>%
+    renameElection()
 ```
 
 ```{r}
@@ -73,16 +79,21 @@ scrapeZipcode <- function(x, n){
 # https://geocoding.geo.census.gov/geocoder/geographies/addressbatch?form used 
 
 sliceGeocode <- function(df,type) { 
+    
     iter <- 1
     for (i in seq(from = 1, to = nrow(df) - (nrow(df) %% 10000) + 1, by = 10000)) {
+        
+        # Create unique path for each of the segmented datasets 
         path <- paste("temp/", type, iter,".csv", sep = "")
         
+        # Create a unique ID for each address, add its address and zipcode, and break into 10,000 row segements 
         section <- df %>%
             mutate(id = (1:nrow(df))) %>%
             select(id, mailingStreet, municipalityName) %>% 
             mutate(state = "NC", zip = scrapeZipcode(df$mailingCity, 5)) %>%
             slice(i:(i+9999))
       
+        # Save the segment
         write_csv(section, path, col_names = F)
         iter <- iter + 1
     }
@@ -91,23 +102,26 @@ sliceGeocode <- function(df,type) {
 ```
 
 ```{r}
+## Create segments for the municipal and general datasets 
 sliceGeocode(general, "gen")
 sliceGeocode(municipal, "muni")
+
+combined <- rbind(general, municipal)
 ```
 
-
 ```{r}
+## TODO: Geocode municipal addresses 
+# Read in geocoded address coordinates 
 
-# hGen <- general %>% filter(municipalityName == "CHAPEL HILL")
-# cGen <- general %>% filter(municipalityName == "CARRBORO")
+#latLngGen <- read_csv("data/latLngGen.csv", col_names = F)
 
-# Read in cooordinates 
-latLngGen <- read_csv("data/latlng.csv", col_names = F)
+#general <- general %>% 
+#    mutate(lat = latLngGen$X1, lng = latLngGen$X2)
 
-general <- general %>% 
-    mutate(lat = latLngGen$X1, lng = latLngGen$X2)
+#write_csv(general, "temp/genFinal.csv")
 
-write_csv(general, "temp/genFinal.csv")
+
+#latLngMuni <- read_csv("data/latLngMuni.csv", col_names = F)
 
 ```
 

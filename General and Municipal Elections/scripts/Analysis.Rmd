@@ -1,0 +1,164 @@
+---
+title: "Analysis"
+author: "Alex Kan -lexokan"
+date: "January 5, 2018"
+output: html_document
+---
+```{r}
+# Load packages
+library(tidyverse)
+library(RColorBrewer)
+```
+
+```{r}
+# Create data.frames of unqiue voters in each type of election
+genUnique <- general[!duplicated(general[,"fullName"]),]
+muniUnique <- municipal[!duplicated(municipal[,"fullName"]),]
+
+# Plot histogram of general voters by age and status code. Note issues with inactive young voters.
+ggplot(genUnique, aes(x = age, fill = statusCode)) +
+    geom_histogram(bins = 20, color = 'black') +
+    labs(x = 'Age', y = 'Count', title = 'General election voters by registration type')
+
+# Plot histogram of municipal voters and age by status code. Once again not the lack of active young voters. Also note the much older median age. 
+ggplot(muniUnique, aes(age, fill = statusCode)) +
+    geom_histogram(bins = 20, color = 'black')+
+    scale_fill_manual(values = c("blue","red","green")) +
+    labs(x = 'Age', y = 'Voter Count', title = "Municipal Election Voters by Age")
+  
+  
+```
+
+```{r}
+# Determine the age  in each Town during each election
+genUnique %>%
+    filter(municipalityName == "CARRBORO") %>%
+    select(age) %>%
+    lapply(., mean, na.rm = T)
+
+genUnique %>%
+    filter(municipalityName == "CHAPEL HILL") %>%
+    select(age) %>%
+    lapply(., mean, na.rm = T)
+# Carrboro: 43, Chapel Hill: 38.5
+
+muniUnique %>%
+    filter(municipalityName == "CARRBORO") %>%
+    select(age) %>%
+    lapply(., mean, na.rm = T)
+
+muniUnique %>% 
+    filter(municipalityName == "CHAPEL HILL") %>% 
+    select(age) %>%
+    lapply(., mean, na.rm = T)
+# Carrboro: 52, Chapel HillL: 57
+
+
+# Determine the of registered voters who voted over the age of age 65 compared to 18-34 
+muniUnique %>%
+    select(age) %>%
+    filter(. >= 65) %>%
+    nrow(.)
+
+muniUnique %>% 
+    select(age) %>% 
+    filter(.>= 18 & .<= 34) %>%
+    nrow(.)
+```
+Nearly 2.5x as many Over 65 voters voted in the municipal election than the general 
+
+```{r}
+genUnique %>%
+    select(age) %>%
+    filter(. >= 65) %>%
+    nrow(.)
+
+genUnique %>%
+    select(age) %>%
+    filter(.>= 18 & .<= 34) %>%
+    nrow(.)
+```
+4.0x as many under 34 voters voted than over 65 in the general 
+
+```{r}
+# Average age of active voters compared to average of all registered voters
+combined %>%
+    filter(statusCode == "A") %>% 
+    select(age) %>%
+    lapply(., mean, na.rm = T)
+
+combined %>%
+    filter(statusCode == "I") %>% 
+    select(age) %>% 
+    lapply(., mean, na.rm = T)
+
+# Determine the number of voters of each type. 
+filter(combined, statusCode == "A") %>%
+    nrow()
+filter(combined, statusCode == "I") %>%
+    nrow()
+filter(combined, statusCode == "S") %>%
+    nrow()
+
+```
+
+
+```{r}
+# Define function to determine the parcitipation rate by race of an election
+
+participationRate <- function(df, municipality) {
+
+# Create vector of race codes 
+races <- c("A", "B", "M", "I", "O","W")
+
+# Group by race and count the number of observations 
+output <- df %>% 
+    filter(municipalityName == municipality, race %in% races) %>%
+    group_by(race) %>%
+    summarise(
+        count = n()
+    )
+
+# Create vector of population of each race within Chapel Hill
+popByRace <- c(5785, 4630, 185, 905, 2650, 35075)
+
+# Format output 
+output[1] <- c("Asian", "Black", "Native American", "Multi-Racial", "Other/Unknown", "White")
+output[3] <- (output[2] / popByRace)
+output <- rename(output, participationRate = `count.1`)
+
+list <- list(race = output[1], participationRate =  output[3])
+output
+
+}
+```
+
+Note the massive disparity in participation rates for muncipal elections, with an almost 30% difference between White voters and both Asian and African-American voters.
+```{r}
+participationRate(municipal, "CHAPEL HILL")
+
+```
+
+
+NOTES ON DATA -----------------------------------------------------------
+
+
+ Population numbers from the 2011-2015 American Community Survey 5 year estimates - published 02/01/2017
+ https://www.census.gov/rdo/data/voting_age_population_by_citizenship_and_race_cvap.html
+
+ Voting age population in the Town of Chapel Hill by race
+
+ Total		49230
+ American Indian or Alaska Native Alone	170
+ Asian Alone	5785
+ Black or African American 4630
+ Native Hawaiian or Other Pacific Islander Alone		15
+ White Alone		35075
+ American Indian or Alaska Native and White	85
+ Asian and White	490
+ Black or African American and White		165
+ American Indian or Alaska Native and Black or African American	25
+ Remainder of Two or More Race Responses		140
+
+
+

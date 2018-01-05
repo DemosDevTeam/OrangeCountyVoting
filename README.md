@@ -1,4 +1,4 @@
-# Orange County Voting
+## Orange County Voting
 
 #### Analysis of Voting trends within Orange County, North Carolina.
 
