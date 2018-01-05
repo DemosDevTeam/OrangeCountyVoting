@@ -1,0 +1,55 @@
+---
+title: "LeafletMapping"
+author: "Alex Kan -lexokan"
+date: "November 19, 2017"
+output: html_document
+---
+
+```{r setup, message = FALSE, include=FALSE, warning = FALSE}
+library(tidyverse)
+library(leaflet)
+library(htmlwidgets)
+library(magrittr)
+library(leaflet.extras)
+library(ggmap)
+```
+
+```{r}
+# Read in dataset for all D1 schools
+df <- read_csv("data/chCoordinates") %>% 
+    select(latitude, longitude) %>% 
+    rename(lng = latitude, lat = longitude)
+
+df <- df[c("lat", "lng")]
+
+comb <- data.combined %>%
+    filter(municipalityName == 'CHAPEL HILL') %>%
+    as.tibble()
+
+comb$fullName %>% unique() %>% length()
+```
+
+```{r}
+#chapelHill <- get_map(location = 'chapel hill' , zoom = 15)
+ggmap(chapelHill) + geom_tile(data = df, aes(x = lng, y = lat),
+                           fill = 'red') + theme(axis.title.y = element_blank(), axis.title.x = element_blank())
+```
+
+
+```{r}
+latlng <- df %>% 
+    slice(runif(2000,1,34876))
+
+map <- latlng %>%
+    leaflet() %>%
+    addTiles() %>%
+    setView(-79.0534, 35.915, zoom = 13) %>%
+    addMarkers(clusterOptions = markerClusterOptions()) %>%
+    addHeatmap()
+
+map
+saveWidget(map, file="map.html")
+
+```
+
+

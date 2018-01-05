@@ -1,0 +1,113 @@
+---
+title: "Input"
+author: "Alex Kan -lexokan"
+date: "December 1, 2017"
+output: html_document
+---
+
+```{r, message = FALSE}
+# Load packages 
+library(tidyverse)
+```
+
+```{r, message = F}
+
+# Def function to rename dataframe columns 
+
+renameElection <- function(df) {
+df <- rename(df,precinctName = `JURISDICTION: PRECINCT NAME`,
+                  municipalityName = `JURISDICTION: MUNICIPALITY NAME`,
+                  lastName = `NAME: LAST`,
+                  firstName = `NAME: FIRST`,
+                  statusCode = `STATUS CODE`,
+                  middleName = `NAME: MIDDLE`,
+                  ethnictyCode = `ETHNICITY CODE`,
+                  residentialStreet = `RESIDENTIAL ADDRESS: FULL STREET`, 
+                  residentialCity = `RESIDENTIAL ADDRESS: CITY/STATE/ZIP`,
+                  mailingStreet = `MAILING ADDRESS: LINE 1`,
+                  mailingCity = `MAILING ADDRESS: CITY/STATE/ZIP`,
+                  age = `AGE AT YEAR END`,
+                  race = `RACE CODE`,
+                  gender = `GENDER CODE`,
+                  party = `PARTY CODE`,
+                  electionYear = `ELECTION DATE`,
+                  electionName = `ELECTION NAME`,
+                  votedParty = `VOTED PARTY CODE`
+    )
+
+# Mutate to determine election year, create full name and full address features (for geocoding)
+
+df <- df %>% 
+    mutate(electionYear = substring(electionYear, 6,9),
+           fullName = paste(firstName, middleName, lastName), 
+           address = paste(mailingStreet, mailingCity))
+
+df$fullName <- gsub(" NA ", "  ", df$fullName)
+df$residentialStreet <- gsub('# ', '',df$residentialStreet)
+
+#df <- df[!duplicated(df[,"fullName"]),]
+
+return(df)
+
+}
+
+```
+
+```{r}
+# Read in general and municipal election datasets and apply function
+
+general <- read_csv("data/General.csv") %>% renameElection()
+municipal <- read_csv("data/Municipal.csv") %>% renameElection()
+```
+
+```{r}
+# Def function to determine the zipcode of each address 
+
+scrapeZipcode <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+```
+
+```{r}
+# Def function to break up each dataset into 10,000 row segments in order to batch geoccode. 
+# https://geocoding.geo.census.gov/geocoder/geographies/addressbatch?form used 
+
+sliceGeocode <- function(df,type) { 
+    iter <- 1
+    for (i in seq(from = 1, to = nrow(df) - (nrow(df) %% 10000) + 1, by = 10000)) {
+        path <- paste("temp/", type, iter,".csv", sep = "")
+        
+        section <- df %>%
+            mutate(id = (1:nrow(df))) %>%
+            select(id, mailingStreet, municipalityName) %>% 
+            mutate(state = "NC", zip = scrapeZipcode(df$mailingCity, 5)) %>%
+            slice(i:(i+9999))
+      
+        write_csv(section, path, col_names = F)
+        iter <- iter + 1
+    }
+}
+
+```
+
+```{r}
+sliceGeocode(general, "gen")
+sliceGeocode(municipal, "muni")
+```
+
+
+```{r}
+
+# hGen <- general %>% filter(municipalityName == "CHAPEL HILL")
+# cGen <- general %>% filter(municipalityName == "CARRBORO")
+
+# Read in cooordinates 
+latLngGen <- read_csv("data/latlng.csv", col_names = F)
+
+general <- general %>% 
+    mutate(lat = latLngGen$X1, lng = latLngGen$X2)
+
+write_csv(general, "temp/genFinal.csv")
+
+```
+
